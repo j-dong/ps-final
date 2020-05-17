@@ -5,7 +5,7 @@
 
 extern std::atomic_bool running;
 
-constexpr int WIDTH = 300, HEIGHT = 200;
+constexpr int WIDTH = 60, HEIGHT = 40;
 
 enum GridOwner {
     READER, // read-only
@@ -17,9 +17,10 @@ struct alignas(4 * sizeof(double)) Grid {
     double pressure[HEIGHT][WIDTH];
     double density[HEIGHT][WIDTH];
     double temperature[HEIGHT][WIDTH];
-    // velocity[y][x][0] connects (x - 1, y) with (x, y)
-    // velocity[y][x][1] connects (x, y - 1) with (x, y)
-    double velocity[HEIGHT + 4][WIDTH + 4][2];
+    // velocity_x[y][x] connects (x - 1, y) with (x, y)
+    double velocity_x[HEIGHT + 4][WIDTH + 4];
+    // velocity_y[y][x] connects (x, y - 1) with (x, y)
+    double velocity_y[HEIGHT + 4][WIDTH + 4];
     // feel free to add
     bool updated; // handled automatically for you
 };

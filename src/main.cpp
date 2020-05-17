@@ -1,12 +1,13 @@
 #include "interface.h"
 
-constexpr int WINDOW_W = WIDTH * 2, WINDOW_H = HEIGHT * 2;
+constexpr int WINDOW_W = WIDTH * 20, WINDOW_H = HEIGHT * 20;
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include <cstdio>
 
+#include <iostream>
 #include <thread>
 #include <vector>
 
@@ -35,7 +36,10 @@ out vec4 color;
 uniform sampler2D tex;
 
 void main() {
-    color = texture(tex, texcoord);
+    vec4 data = texture(tex, texcoord);
+    vec3 col3 = mix(vec3(0.2, 0.2, 0.2), vec3(1.0, 0.0, 0.0), data.z / 40.0);
+    color = vec4(col3 * data.y, data.y);
+    color = vec4(texcoord.x, texcoord.y, 0.0, 1.0);
 }
 )zzz";
 
@@ -155,6 +159,8 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
         Grid *grid = grid_swap(READER);
         if (!grid->updated) goto next;
+
+        std::cout << "Got new data!" << std::endl;
 
         gen_upload_data(grid);
 
