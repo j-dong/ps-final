@@ -17,12 +17,9 @@ struct alignas(4 * sizeof(double)) Grid {
     double pressure[HEIGHT][WIDTH];
     double density[HEIGHT][WIDTH];
     double temperature[HEIGHT][WIDTH];
-    // velocity_horizontal[y][x]
-    // connects (x - 1, y) with (x, y)
-    double velocity_horizontal[HEIGHT + 4][WIDTH + 4][2];
-    // velocity_vertical[y][x]
-    // connects (x, y - 1) with (x, y)
-    double velocity_vertical[HEIGHT + 4][WIDTH + 4][2];
+    // velocity[y][x][0] connects (x - 1, y) with (x, y)
+    // velocity[y][x][1] connects (x, y - 1) with (x, y)
+    double velocity[HEIGHT + 4][WIDTH + 4][2];
     // feel free to add
     bool updated; // handled automatically for you
 };

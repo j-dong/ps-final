@@ -150,8 +150,9 @@ int main() {
     init_grids();
     std::thread sim_thread(sim_main);
 
-    while (!glfwWindowShouldClose(window)) {
+    bool valid = false;
 
+    while (!glfwWindowShouldClose(window)) {
         Grid *grid = grid_swap(READER);
         if (!grid->updated) goto next;
 
@@ -160,11 +161,12 @@ int main() {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT,
                      0, GL_RGBA32F, GL_FLOAT,
                      (const GLvoid *) upload_data);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
-        glfwSwapBuffers(window);
+        valid = true;
 
 next:
+        glClear(GL_COLOR_BUFFER_BIT);
+        if (valid) glDrawArrays(GL_TRIANGLES, 0, 3);
+        glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
