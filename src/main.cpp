@@ -19,13 +19,11 @@ extern void sim_main();
 extern void sim_init_grid(Grid *grid);
 
 static const char *VERTEX_SHADER = R"zzz(#version 330 core
+in vec2 c;
 out vec2 texcoord;
 void main() {
-    float x = -1.0 + float((gl_VertexID & 1) << 2);
-    float y = -1.0 + float((gl_VertexID & 2) << 1);
-    texcoord.x = 0.5 * (1.0 + x);
-    texcoord.y = 0.5 * (1.0 + y);
-    gl_Position = vec4(x, y, 0.0, 1.0);
+    texcoord = 0.5 * (1.0 + c);
+    gl_Position = vec4(c, 0.0, 1.0);
 }
 )zzz";
 
@@ -39,9 +37,14 @@ void main() {
     vec4 data = texture(tex, texcoord);
     vec3 col3 = mix(vec3(0.2, 0.2, 0.2), vec3(1.0, 0.0, 0.0), data.z / 40.0);
     color = vec4(col3 * data.y, data.y);
-    color = vec4(texcoord.x, texcoord.y, 0.0, 1.0);
 }
 )zzz";
+
+static const float VERTICES[][2] = {
+    { -1.0, -1.0 },
+    {  3.0, -1.0 },
+    { -1.0,  3.0 },
+};
 
 static constexpr float CLEAR_COLOR[] = {0.7, 0.7, 0.7, 1.0};
 
@@ -80,6 +83,10 @@ int main() {
     }
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
 
     GLint temp;
 
@@ -140,6 +147,13 @@ int main() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+    GLuint buf;
+    glGenBuffers(1, &buf);
+    glBindBuffer(GL_ARRAY_BUFFER, buf);
+    glBufferData(GL_ARRAY_BUFFER, sizeof VERTICES, (const void *) VERTICES, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
     glClearColor(CLEAR_COLOR[0],
                  CLEAR_COLOR[1],
                  CLEAR_COLOR[2],
@@ -154,30 +168,61 @@ int main() {
     init_grids();
     std::thread sim_thread(sim_main);
 
-    bool valid = false;
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WIDTH, HEIGHT,
+                 0, GL_RGBA, GL_FLOAT,
+                 nullptr);
 
     while (!glfwWindowShouldClose(window)) {
         Grid *grid = grid_swap(READER);
+        GLenum err;
         if (!grid->updated) goto next;
+        grid->updated = false;
 
-        std::cout << "Got new data!" << std::endl;
+        // std::cout << "Got new data!" << std::endl;
+        // printf("using %p\n", grid);
 
         gen_upload_data(grid);
 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT,
-                     0, GL_RGBA32F, GL_FLOAT,
-                     (const GLvoid *) upload_data);
-        valid = true;
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, tex);
+        glGetError();
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, WIDTH, HEIGHT,
+                     GL_RGBA, GL_FLOAT, (const GLvoid *) upload_data);
+        err = glGetError();
+        switch (err) {
+        case GL_NO_ERROR:
+            break;
+        case GL_INVALID_ENUM:
+            std::cerr << "error: GL_INVALID_ENUM" << std::endl;
+            break;
+        case GL_INVALID_VALUE:
+            std::cerr << "error: GL_INVALID_VALUE" << std::endl;
+            break;
+        case GL_INVALID_OPERATION:
+            std::cerr << "error: GL_INVALID_OPERATION" << std::endl;
+            break;
+        case GL_INVALID_FRAMEBUFFER_OPERATION:
+            std::cerr << "error: GL_INVALID_FRAMEBUFFER_OPERATION" << std::endl;
+            break;
+        case GL_OUT_OF_MEMORY:
+            std::cerr << "error: GL_OUT_OF_MEMORY" << std::endl;
+            break;
+        default:
+            std::cerr << "error: unknown error" << std::endl;
+            break;
+        }
+
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glfwSwapBuffers(window);
 
 next:
-        glClear(GL_COLOR_BUFFER_BIT);
-        if (valid) glDrawArrays(GL_TRIANGLES, 0, 3);
-        glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
     running.store(false, std::memory_order_relaxed);
 
+    glDeleteBuffers(1, &buf);
     glDeleteTextures(1, &tex);
     glDeleteProgram(prog);
 

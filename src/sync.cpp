@@ -79,20 +79,15 @@ Grid *get_current_grid(GridOwner owner) {
 
 Grid *grid_swap(GridOwner owner) {
     ASSERT(owner == READER || owner == WRITER);
-    // if writer, mark as updated so reader knows
-    // otherwise, unmark before releasing
     OwnedGridValue val;
     uint64_t read;
-    read = val.value64 = owned_grids.load();
-    grids[val.as_arr.value32[WRITER]].updated =
-        owner == WRITER;
     int32_t ret;
     while (true) {
+        read = val.value64 = owned_grids.load();
         ret = val.as_arr.value32[owner] = other_grid(val);
         if (owned_grids.compare_exchange_weak(read, val.value64)) {
             break;
         }
-        read = val.value64 = owned_grids.load();
     }
     return &grids[ret];
 }

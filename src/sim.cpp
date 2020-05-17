@@ -1,6 +1,7 @@
 #include "interface.h"
 
 #include <cmath>
+#include <cstdio>
 
 #include <iostream>
 #include <vector>
@@ -18,6 +19,9 @@ void sim_init_grid(Grid *grid) {
         grid->density[y + HEIGHT - 40][WIDTH / 2 - 10 + x] = 1.0;
         grid->temperature[y + HEIGHT - 40][WIDTH / 2 - 10 + x] = 20;
     }
+    for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        grid->velocity_y[y][x] = 1.0;
+    }
 }
 
 void sim_main() {
@@ -25,6 +29,17 @@ void sim_main() {
     while (running.load(std::memory_order_relaxed)) {
         Grid *next = grid_swap(WRITER);
         step(next, prev);
+        next->updated = true;
+        printf("updated %p\n", next);
+        /*
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                std::cout << (next->temperature[y][x] > 10.0f ? 'A' : ' ');
+            }
+            std::cout << "\n";
+        }
+        */
+        std::cout << std::endl;
         prev = next;
     }
 }
@@ -52,9 +67,9 @@ Vector2d interpolateVelocity(const Grid &grid, Vector2d position) {
     return Vector2d(vx, vy);
 }
 
-constexpr double TIMESTEP = 0.001;
-constexpr double ALPHA    = 1.0;
-constexpr double BETA     = 0.1;
+constexpr double TIMESTEP = 0.01;
+constexpr double ALPHA    = 0.2;
+constexpr double BETA     = 1.0;
 
 void process_forces(Grid *grid) {
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
@@ -140,5 +155,13 @@ void step(Grid *grid, const Grid *prev) {
             interpolateVelocity(*grid, Vector2d(x, y));
         grid->density[y][x] = interpolate(prev->density, pt);
         grid->temperature[y][x] = interpolate(prev->temperature, pt);
+    }
+    for (int z = 0; z < 10; z++) {
+        int y = 1;
+        int x = (WIDTH - 10) / 2 + z;
+        double d = grid->density[y][x];
+        grid->density[y][x] += 1.0;
+        grid->temperature[y][x] = (grid->temperature[y][x] * d + 1.0 * 100.0) / grid->density[y][x];
+        grid->velocity_y[y][x] = 1.0;
     }
 }
