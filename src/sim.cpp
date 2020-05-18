@@ -52,12 +52,12 @@ template<int W, int H>
 double interpolate(const double (&values)[H][W], Vector2d position) {
     if (position(0) < 0.0) position(0) = 0.0;
     if (position(1) < 0.0) position(1) = 0.0;
-    if (position(0) > W) position(0) = W;
-    if (position(1) > H) position(1) = H;
+    if (position(0) > W - 1) position(0) = W - 1;
+    if (position(1) > H - 1) position(1) = H - 1;
     int ix = (int) std::floor(position(0)),
         iy = (int) std::floor(position(1));
-    if (ix >= W) ix = W - 1;
-    if (iy >= H) iy = H - 1;
+    if (ix >= W - 1) ix = W - 2;
+    if (iy >= H - 1) iy = H - 2;
     double fx = position(0) - ix, fy = position(1) - iy;
     double vx0 = values[iy]    [ix] * (1.0 - fx) + values[iy]    [ix + 1] * fx;
     double vx1 = values[iy + 1][ix] * (1.0 - fx) + values[iy + 1][ix + 1] * fx;
