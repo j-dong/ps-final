@@ -156,6 +156,7 @@ void step(Grid *grid, const Grid *prev) {
         grid->density[y][x] = interpolate(prev->density, pt);
         grid->temperature[y][x] = interpolate(prev->temperature, pt);
     }
+    /*
     for (int z = 0; z < 10; z++) {
         int y = 1;
         int x = (WIDTH - 10) / 2 + z;
@@ -164,4 +165,5 @@ void step(Grid *grid, const Grid *prev) {
         grid->temperature[y][x] = (grid->temperature[y][x] * d + 1.0 * 100.0) / grid->density[y][x];
         grid->velocity_y[y][x] = 1.0;
     }
+    */
 }

@@ -5,7 +5,7 @@
 
 extern std::atomic_bool running;
 
-constexpr int WIDTH = 48, HEIGHT = 48;
+constexpr int WIDTH = 64, HEIGHT = 64;
 
 enum GridOwner {
     READER, // read-only

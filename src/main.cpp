@@ -37,6 +37,10 @@ void main() {
     vec4 data = texture(tex, texcoord);
     vec3 col3 = mix(vec3(0.2, 0.2, 0.2), vec3(1.0, 0.0, 0.0), data.z / 40.0);
     color = vec4(col3 * data.y, data.y);
+    color.r = data.x;
+    color.g = data.y;
+    color.b = data.z;
+    color.a = 1.0;
 }
 )zzz";
 
@@ -146,6 +150,8 @@ int main() {
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
     GLuint buf;
     glGenBuffers(1, &buf);
