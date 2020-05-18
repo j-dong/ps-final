@@ -72,7 +72,10 @@ Vector2d interpolateVelocity(const Grid &grid, Vector2d position) {
 
 void process_forces(Grid *grid) {
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
-        grid->velocity_y[y][x] += params.timestep * (-params.alpha * grid->density[y][x] + params.beta * grid->temperature[y][x]);
+        Vector2d pt(x, y - 0.5);
+        double density = interpolate(grid->density, pt);
+        double temp = interpolate(grid->temperature, pt);
+        grid->velocity_y[y][x] += params.timestep * (-params.alpha * density + params.beta * temp);
     }
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++)
     {
