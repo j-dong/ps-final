@@ -109,20 +109,18 @@ void sim_main() {
 }
 
 template<int W, int H>
+double querySafe(const double (&values)[H][W], int x, int y) {
+    if (x < 0 || y < 0 || x >= W || y >= H) return 0.0;
+    return values[y][x];
+}
+
+template<int W, int H>
 double interpolate(const double (&values)[H][W], Vector2d position) {
-    if (position(0) <= 0.0) position(0) = 0.0;
-    if (position(1) <= 0.0) position(1) = 0.0;
-    if (position(0) > W - 1) position(0) = W - 1;
-    if (position(1) > H - 1) position(1) = H - 1;
-    int ix = (int) position(0),
-        iy = (int) position(1);
-    if (ix >= W - 1) ix = W - 2;
-    if (iy >= H - 1) iy = H - 2;
+    int ix = (int) std::floor(position(0)),
+        iy = (int) std::floor(position(1));
     double fx = position(0) - ix, fy = position(1) - iy;
-    if (ix < 0) { ix = 0; fx = 0.0; }
-    if (iy < 0) { iy = 0; fy = 0.0; }
-    double vx0 = values[iy]    [ix] * (1.0 - fx) + values[iy]    [ix + 1] * fx;
-    double vx1 = values[iy + 1][ix] * (1.0 - fx) + values[iy + 1][ix + 1] * fx;
+    double vx0 = querySafe(values, ix, iy  ) * (1.0 - fx) + querySafe(values, ix+1, iy  ) * fx;
+    double vx1 = querySafe(values, ix, iy+1) * (1.0 - fx) + querySafe(values, ix+1, iy+1) * fx;
     return vx0 * (1.0 - fy) + vx1 * fy;
 }
 
@@ -224,6 +222,9 @@ void step(Grid *grid, const Grid *prev) {
         Vector2d pt = Vector2d(x, y) - params.timestep *
             interpolateVelocity(*grid, Vector2d(x, y));
         grid->density[y][x] = interpolate(prev->density, pt);
+        if (grid->density[y][x] < 0.0) {
+            std::cout << "NEGATIVE DENSITY!" << std::endl;
+        }
         grid->temperature[y][x] = interpolate(prev->temperature, pt);
     }
     PV;
