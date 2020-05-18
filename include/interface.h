@@ -28,10 +28,12 @@ public:
     void init();
 };
 
-struct alignas(4 * sizeof(double)) Grid {
+struct alignas(4 * sizeof(double)) Grid
+{
     double pressure[HEIGHT][WIDTH];
     double density[HEIGHT][WIDTH];
     double temperature[HEIGHT][WIDTH];
+    double vorticity[HEIGHT][WIDTH];
     // velocity_x[y][x] connects (x - 1, y) with (x, y)
     double velocity_x[HEIGHT + 4][WIDTH + 4];
     // velocity_y[y][x] connects (x, y - 1) with (x, y)
@@ -43,6 +45,7 @@ struct alignas(4 * sizeof(double)) Grid {
 struct SimParams {
     double timestep = 0.01;
     double alpha = 0.2, beta = 1.0;
+    double epsilon = 0.01;
     bool updated = false;
 };
 
