@@ -92,12 +92,12 @@ void process_forces(Grid *grid) {
       using std::abs;
       Nx(0) = abs(grid->vorticity[y][x]) - abs(grid->vorticity[y][x-1]);
       Nx(1) = 0.25 * (abs(grid->vorticity[y+1][x]) + abs(grid->vorticity[y+1][x-1]) - abs(grid->vorticity[y-1][x]) - abs(grid->vorticity[y-1][x-1]));
-      Nx.normalize();
+      Nx /= Nx.norm() + 1e-5;
       Vector2d Ny;
       //Used for normalization
       Ny(1) = abs(grid->vorticity[y][x]) - abs(grid->vorticity[y-1][x]);
       Ny(0) = 0.25 * (abs(grid->vorticity[y][x+1]) + (grid->vorticity[y-1][x+1]) - abs(grid->vorticity[y][x-1]) - abs(grid->vorticity[y-1][x-1]));
-      Ny.normalize();
+      Ny /= Ny.norm() + 1e-5;
       double omega_x = 0.5* (grid->vorticity[y][x] + grid->vorticity[y][x-1]);
       double omega_y = 0.5* (grid->vorticity[y][x] + grid->vorticity[y-1][x]);
       grid->velocity_x[y][x] += Nx(1) * omega_x * params.epsilon * params.timestep;
@@ -144,6 +144,8 @@ void calculate_pressure(Grid *grid) {
     A.setFromTriplets(rows.begin(), rows.end());
     rows.clear();
     ConjugateGradient<Mat, Lower|Upper, IncompleteCholesky<double>> solver;
+    // solver.setMaxIterations(20);
+    // solver.setTolerance(1e-8);
     solver.compute(A);
     Map<VectorXd> pressureMap((double *) grid->pressure, N);
     pressureMap = solver.solve(b);
@@ -178,14 +180,12 @@ void step(Grid *grid, const Grid *prev) {
         grid->density[y][x] = interpolate(prev->density, pt);
         grid->temperature[y][x] = interpolate(prev->temperature, pt);
     }
-    /*
     for (int z = 0; z < 10; z++) {
-        int y = 1;
+        int y = 2;
         int x = (WIDTH - 10) / 2 + z;
         double d = grid->density[y][x];
         grid->density[y][x] += 1.0;
         grid->temperature[y][x] = (grid->temperature[y][x] * d + 1.0 * 100.0) / grid->density[y][x];
-        grid->velocity_y[y][x] = 1.0;
+        // grid->velocity_y[y][x] = 1.0;
     }
-    */
 }
