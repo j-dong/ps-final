@@ -22,6 +22,8 @@ std::atomic_bool running;
 extern void sim_main();
 extern void sim_init_grid(Grid *grid);
 
+static bool want_reset = false;
+
 static const char *VERTEX_SHADER = R"zzz(#version 330 core
 in vec2 c;
 out vec2 texcoord;
@@ -77,6 +79,9 @@ void render_gui() {
     SimParams *params = param_buf.swap(WRITER);
     static bool show_metrics = false, show_demo = false;
     ImGui::Begin("Parameters");
+    if (ImGui::Button("Reset Simulation")) {
+        want_reset = true;
+    }
     ImGui::InputDouble("Timestep", &params->timestep);
     if (ImGui::CollapsingHeader("Buoyancy", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::InputDouble("Alpha", &params->alpha);
@@ -285,6 +290,17 @@ next:
         glfwSwapBuffers(window);
 
         glfwPollEvents();
+
+        if (want_reset) {
+            want_reset = false;
+            std::cout << "Resetting simulation!" << std::endl;
+            running.store(false, std::memory_order_relaxed);
+            sim_thread.join();
+            sim_init_grid(grids.get_init());
+            grids.init();
+            running.store(true, std::memory_order_relaxed);
+            sim_thread = std::thread(sim_main);
+        }
     }
 
     running.store(false, std::memory_order_relaxed);

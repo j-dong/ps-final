@@ -170,8 +170,8 @@ void calculate_pressure(Grid *grid) {
     rows.clear();
     // ConjugateGradient<Mat, Lower|Upper, IncompleteCholesky<double>> solver;
     ConjugateGradient<Mat, Lower|Upper> solver;
-    // solver.setMaxIterations(20);
-    // solver.setTolerance(1e-8);
+    solver.setMaxIterations(40);
+    solver.setTolerance(1e-10);
     solver.compute(A);
     Map<VectorXd> pressureMap((double *) grid->pressure, N);
     VectorXd temp = solver.solve(b);
