@@ -14,6 +14,8 @@
 
 using namespace Eigen;
 
+constexpr int N = WIDTH * HEIGHT;
+
 void print_total_velocities(int line, Grid *grid) {
     double total_sum_x = 0.0;
     double total_sum_y = 0.0;
@@ -27,6 +29,8 @@ void print_total_velocities(int line, Grid *grid) {
 #define PV print_total_velocities(__LINE__, grid)
 
 static SimParams params;
+static SparseMatrix<double> laplacian;
+static ConjugateGradient<SparseMatrix<double>, Lower|Upper, IncompleteCholesky<double>> solver;
 
 static void step(Grid *grid, const Grid *prev);
 
@@ -40,6 +44,42 @@ void sim_init_grid(Grid *grid) {
         grid->density[y + HEIGHT - 40][WIDTH / 2 - 10 + x] = 1.0;
         grid->temperature[y + HEIGHT - 40][WIDTH / 2 - 10 + x] = 20;
     }
+}
+
+inline int INDEX(int x, int y) { return x + y * WIDTH; }
+
+bool is_valid(int x, int y) {
+    if (x < 0 || x >= WIDTH) return false;
+    if (y < 0 || y >= HEIGHT) return false;
+    // TODO: solid cells
+    return true;
+}
+
+void sim_init() {
+    solver.setMaxIterations(40);
+    solver.setTolerance(1e-10);
+    std::vector<Eigen::Triplet<double>> rows;
+    rows.reserve(5 * N);
+    // fill in Laplacian matrix
+    int NEIGHBOR_OFFSETS[][2] = {
+        {-1, 0},
+        { 1, 0},
+        { 0,-1},
+        { 0, 1},
+    };
+    for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        rows.emplace_back(INDEX(x, y), INDEX(x, y), 4.0);
+        for (const int (&d)[2] : NEIGHBOR_OFFSETS) {
+            int dx = x + d[0], dy = y + d[1];
+            if (is_valid(dx, dy)) {
+                rows.emplace_back(INDEX(x, y), INDEX(dx, dy), -1.0);
+            }
+        }
+    }
+    laplacian.resize(N, N);
+    laplacian.setFromTriplets(rows.begin(), rows.end());
+    rows.clear();
+    solver.compute(laplacian);
 }
 
 void sim_main() {
@@ -127,52 +167,16 @@ void apply_force(Grid *grid) {
     }
 }
 
-inline int INDEX(int x, int y) { return x + y * WIDTH; }
-
-bool is_valid(int x, int y) {
-    if (x < 0 || x >= WIDTH) return false;
-    if (y < 0 || y >= HEIGHT) return false;
-    // TODO: solid cells
-    return true;
-}
-
 void calculate_pressure(Grid *grid) {
-    typedef SparseMatrix<double> Mat;
-    typedef VectorXd Vec;
-    int N = WIDTH * HEIGHT;
-    Mat A(N, N);
-    Vec b(N);
-    // fill in Laplacian matrix
-    std::vector<Eigen::Triplet<double>> rows;
-    rows.reserve(5 * N);
-    int NEIGHBOR_OFFSETS[][2] = {
-        {-1, 0},
-        { 1, 0},
-        { 0,-1},
-        { 0, 1},
-    };
+    VectorXd b(N);
     double sum_b = 0.0;
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
-        rows.emplace_back(INDEX(x, y), INDEX(x, y), 4.0);
-        for (const int (&d)[2] : NEIGHBOR_OFFSETS) {
-            int dx = x + d[0], dy = y + d[1];
-            if (is_valid(dx, dy)) {
-                rows.emplace_back(INDEX(x, y), INDEX(dx, dy), -1.0);
-            }
-        }
         b(y) = -grid->velocity_x[y][x] + grid->velocity_x[y][x + 1]
              + -grid->velocity_y[y][x] + grid->velocity_y[y + 1][x];
         b(y) /= -params.timestep;
         sum_b += std::abs(b(y));
     }
     std::cout << "sum of b's: " << sum_b << std::endl;
-    A.setFromTriplets(rows.begin(), rows.end());
-    rows.clear();
-    // ConjugateGradient<Mat, Lower|Upper, IncompleteCholesky<double>> solver;
-    ConjugateGradient<Mat, Lower|Upper> solver;
-    solver.setMaxIterations(40);
-    solver.setTolerance(1e-10);
-    solver.compute(A);
     Map<VectorXd> pressureMap((double *) grid->pressure, N);
     VectorXd temp = solver.solve(b);
     // if (b.norm() < 1e-10) {

@@ -21,6 +21,7 @@ std::atomic_bool running;
 
 extern void sim_main();
 extern void sim_init_grid(Grid *grid);
+extern void sim_init();
 
 static bool want_reset = false;
 
@@ -220,6 +221,7 @@ int main() {
 
     sim_init_grid(grids.get_init());
     grids.init();
+    sim_init();
     std::thread sim_thread(sim_main);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WIDTH, HEIGHT,
