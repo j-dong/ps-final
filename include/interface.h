@@ -5,7 +5,7 @@
 
 extern std::atomic_bool running;
 
-constexpr int WIDTH = 64, HEIGHT = 64;
+constexpr int WIDTH = 128, HEIGHT = 128;
 
 enum BufferOwner {
     READER,
@@ -34,6 +34,8 @@ struct alignas(4 * sizeof(double)) Grid
     double density[HEIGHT][WIDTH];
     double temperature[HEIGHT][WIDTH];
     double vorticity[HEIGHT][WIDTH];
+    // double force_x[HEIGHT][WIDTH];
+    // double force_y[HEIGHT][WIDTH];
     // velocity_x[y][x] connects (x - 1, y) with (x, y)
     double velocity_x[HEIGHT + 4][WIDTH + 4];
     // velocity_y[y][x] connects (x, y - 1) with (x, y)
@@ -44,9 +46,10 @@ struct alignas(4 * sizeof(double)) Grid
 
 struct SimParams {
     double timestep = 0.01;
-    double alpha = 0.0, beta = 0.0;
-    double epsilon = 0.00;
-    double emitter_density = 0.0;
+    // double alpha = 0.0, beta = 0.0;
+    double alpha = 2.0, beta = 10.0;
+    double epsilon = 1.0;
+    double emitter_density = 0.1;
     double emitter_temp = 50.0;
     bool updated = false;
 };

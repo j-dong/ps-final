@@ -165,26 +165,38 @@ void calculate_pressure(Grid *grid) {
         { 0,-1},
         { 0, 1},
     };
+    double sum_b = 0.0;
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
-        rows.emplace_back(INDEX(x, y), INDEX(x, y), -4.0);
+        rows.emplace_back(INDEX(x, y), INDEX(x, y), 4.0);
         for (const int (&d)[2] : NEIGHBOR_OFFSETS) {
             int dx = x + d[0], dy = y + d[1];
             if (is_valid(dx, dy)) {
-                rows.emplace_back(INDEX(x, y), INDEX(dx, dy), 1.0);
+                rows.emplace_back(INDEX(x, y), INDEX(dx, dy), -1.0);
             }
         }
         b(y) = -grid->velocity_x[y][x] + grid->velocity_x[y][x + 1]
              + -grid->velocity_y[y][x] + grid->velocity_y[y + 1][x];
-        b(y) /= params.timestep;
+        b(y) /= -params.timestep;
+        sum_b += std::abs(b(y));
     }
+    std::cout << "sum of b's: " << sum_b << std::endl;
     A.setFromTriplets(rows.begin(), rows.end());
     rows.clear();
-    ConjugateGradient<Mat, Lower|Upper, IncompleteCholesky<double>> solver;
+    // ConjugateGradient<Mat, Lower|Upper, IncompleteCholesky<double>> solver;
+    ConjugateGradient<Mat, Lower|Upper> solver;
     // solver.setMaxIterations(20);
     // solver.setTolerance(1e-8);
     solver.compute(A);
     Map<VectorXd> pressureMap((double *) grid->pressure, N);
     VectorXd temp = solver.solve(b);
+    // if (b.norm() < 1e-10) {
+    //     temp.setZero();
+    // }
+    double sum_p = 0.0;
+    for (int i = 0; i < N; i++) {
+        sum_p += std::abs(temp(i));
+    }
+    std::cout << "sum of P: " << sum_p << std::endl;
     pressureMap = temp;
 }
 
@@ -222,14 +234,16 @@ void step(Grid *grid, const Grid *prev) {
         grid->temperature[y][x] = interpolate(prev->temperature, pt);
     }
     PV;
-//     for (int z = 0; z < 10; z++) {
-//         int y = 2;
-//         int x = (WIDTH - 10) / 2 + z;
-//         double d = grid->density[y][x];
-//         double dens = params.emitter_density;
-//         grid->density[y][x] += dens;
-//         grid->temperature[y][x] = (grid->temperature[y][x] * d + dens * params.emitter_temp) / grid->density[y][x];
-//         // grid->velocity_y[y][x] = 1.0;
-//     }
-//     PV;
+    if (params.emitter_density > 1e-6) {
+        for (int z = 0; z < 10; z++) {
+            int y = 2;
+            int x = (WIDTH - 10) / 2 + z;
+            double d = grid->density[y][x];
+            double dens = params.emitter_density;
+            grid->density[y][x] += dens;
+            grid->temperature[y][x] = (grid->temperature[y][x] * d + dens * params.emitter_temp) / grid->density[y][x];
+            // grid->velocity_y[y][x] = 1.0;
+        }
+    }
+    PV;
 }

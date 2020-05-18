@@ -1,6 +1,6 @@
 #include "interface.h"
 
-constexpr int WINDOW_W = WIDTH * 20, WINDOW_H = HEIGHT * 20;
+constexpr int WINDOW_W = WIDTH * 10, WINDOW_H = HEIGHT * 10;
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
