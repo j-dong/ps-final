@@ -42,8 +42,8 @@ void main() {
     vec3 col3 = mix(vec3(0.2, 0.2, 0.2), vec3(1.0, 0.0, 0.0), data.z / 40.0);
     color = vec4(col3 * data.y, data.y);
     color.r = data.x;
-    color.g = data.y;
-    color.b = data.z;
+    color.g = data.x;
+    color.b = data.y;
     color.a = 1.0;
 }
 )zzz";
