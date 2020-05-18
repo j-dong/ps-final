@@ -5,12 +5,27 @@
 
 extern std::atomic_bool running;
 
-constexpr int WIDTH = 48, HEIGHT = 48;
+constexpr int WIDTH = 64, HEIGHT = 64;
 
-enum GridOwner {
-    READER, // read-only
-    WRITER, // read/write
+enum BufferOwner {
+    READER,
+    WRITER,
     NUM_OWNERS,
+};
+
+template<typename T>
+class TripleBuffer {
+    T buffers[3];
+    std::atomic_uint64_t owned_buffers = {0x00000000'00000001UL};
+
+public:
+    using Owner = BufferOwner;
+
+    T *swap(Owner owner);
+    T *get_current(Owner owner);
+
+    T *get_init();
+    void init();
 };
 
 struct alignas(4 * sizeof(double)) Grid {
@@ -25,13 +40,16 @@ struct alignas(4 * sizeof(double)) Grid {
     bool updated; // handled automatically for you
 };
 
-// note: for writer, safe to read from previous pointer
-Grid *grid_swap(GridOwner owner);
+struct SimParams {
+    double timestep = 0.01;
+    double alpha = 0.2, beta = 1.0;
+    bool updated = false;
+};
 
-Grid *get_current_grid(GridOwner owner);
+extern TripleBuffer<Grid> grids;
+extern TripleBuffer<SimParams> param_buf;
 
-Grid *get_init_grid();
-// initialize all grids with given data
-void init_grids();
+extern template class TripleBuffer<Grid>;
+extern template class TripleBuffer<SimParams>;
 
 #endif
