@@ -90,6 +90,10 @@ void render_gui() {
         ImGui::ColorEdit3("Density Color", density_color);
         ImGui::ColorEdit3("Temperature Color", temperature_color);
     }
+    if (ImGui::CollapsingHeader("Emitter", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::InputDouble("Density", &params->emitter_density);
+        ImGui::InputDouble("Temperature", &params->emitter_temp);
+    }
     if (ImGui::CollapsingHeader("Debug", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Checkbox("Show Metrics", &show_metrics);
         ImGui::Checkbox("Show Demo", &show_demo);

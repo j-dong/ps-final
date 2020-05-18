@@ -2,6 +2,8 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
+#include <cstdlib>
 
 #include <iostream>
 #include <vector>
@@ -12,11 +14,28 @@
 
 using namespace Eigen;
 
+void print_total_velocities(int line, Grid *grid) {
+    double total_sum_x = 0.0;
+    double total_sum_y = 0.0;
+    for (int y = 0; y < HEIGHT + 1; y++) for (int x = 0; x < WIDTH + 1; x++) {
+        total_sum_x += std::abs(grid->velocity_x[y][x]);
+        total_sum_y += std::abs(grid->velocity_y[y][x]);
+    }
+    std::cout << "total at line " << line << ": " << total_sum_x << ", " << total_sum_y << std::endl;
+}
+
+#define PV print_total_velocities(__LINE__, grid)
+
 static SimParams params;
 
 static void step(Grid *grid, const Grid *prev);
 
 void sim_init_grid(Grid *grid) {
+    std::memset(grid, 0, sizeof *grid);
+    for (int y = 0; y < HEIGHT + 1; y++) for (int x = 0; x < WIDTH + 1; x++) {
+        grid->velocity_x[y][x] = 0.0;
+        grid->velocity_y[y][x] = 0.0;
+    }
     for (int y = 0; y < 20; y++) for (int x = 0; x < 20; x++) {
         grid->density[y + HEIGHT - 40][WIDTH / 2 - 10 + x] = 1.0;
         grid->temperature[y + HEIGHT - 40][WIDTH / 2 - 10 + x] = 20;
@@ -58,6 +77,8 @@ double interpolate(const double (&values)[H][W], Vector2d position) {
     if (ix >= W - 1) ix = W - 2;
     if (iy >= H - 1) iy = H - 2;
     double fx = position(0) - ix, fy = position(1) - iy;
+    if (ix < 0) { ix = 0; fx = 0.0; }
+    if (iy < 0) { iy = 0; fy = 0.0; }
     double vx0 = values[iy]    [ix] * (1.0 - fx) + values[iy]    [ix + 1] * fx;
     double vx1 = values[iy + 1][ix] * (1.0 - fx) + values[iy + 1][ix + 1] * fx;
     return vx0 * (1.0 - fy) + vx1 * fy;
@@ -71,12 +92,22 @@ Vector2d interpolateVelocity(const Grid &grid, Vector2d position) {
 }
 
 void process_forces(Grid *grid) {
+    PV;
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
         Vector2d pt(x, y - 0.5);
         double density = interpolate(grid->density, pt);
         double temp = interpolate(grid->temperature, pt);
+        if (std::isnan(density)) {
+            std::cout << "density is NaN!" << std::endl;
+            std::abort();
+        }
+        if (std::isnan(temp)) {
+            std::cout << "temperature is NaN!" << std::endl;
+            std::abort();
+        }
         grid->velocity_y[y][x] += params.timestep * (-params.alpha * density + params.beta * temp);
     }
+    PV;
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++)
     {
       Vector2d vel_u = interpolateVelocity(*grid, Vector2d(x,y+1));
@@ -87,6 +118,7 @@ void process_forces(Grid *grid) {
       //Since 2-D we only need z direction of omega
       grid->vorticity[y][x] = 0.5 * (vel_r(1) - vel_l(1) - vel_u(0) + vel_d(1));
     }
+    PV;
 
     for (int y = 1; y < HEIGHT - 1; y++) for (int x = 1; x < WIDTH - 1; x++)
     {
@@ -106,6 +138,7 @@ void process_forces(Grid *grid) {
       grid->velocity_x[y][x] += Nx(1) * omega_x * params.epsilon * params.timestep;
       grid->velocity_y[y][x] -= Ny(0) * omega_y * params.epsilon * params.timestep;
     }
+    PV;
 }
 
 inline int INDEX(int x, int y) { return x + y * WIDTH; }
@@ -157,6 +190,7 @@ void calculate_pressure(Grid *grid) {
 
 void step(Grid *grid, const Grid *prev) {
     *grid = *prev;
+    PV;
     for (int y = 0; y < HEIGHT + 1; y++) for (int x = 0; x < WIDTH + 1; x++) {
         // update velocity to obtain u*
         grid->velocity_x[y][x] = interpolate(
@@ -170,13 +204,16 @@ void step(Grid *grid, const Grid *prev) {
                 interpolateVelocity(*prev, Vector2d(x, y - 0.5))
         );
     }
+    PV;
     process_forces(grid);
+    PV;
     calculate_pressure(grid);
     for (int y = 1; y < HEIGHT; y++) for (int x = 1; x < WIDTH; x++) {
         // update velocity based on pressure
         grid->velocity_x[y][x] -= params.timestep * (grid->pressure[y][x] - grid->pressure[y][x - 1]);
         grid->velocity_y[y][x] -= params.timestep * (grid->pressure[y][x] - grid->pressure[y - 1][x]);
     }
+    PV;
     // advect temperature and density
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
         Vector2d pt = Vector2d(x, y) - params.timestep *
@@ -184,12 +221,15 @@ void step(Grid *grid, const Grid *prev) {
         grid->density[y][x] = interpolate(prev->density, pt);
         grid->temperature[y][x] = interpolate(prev->temperature, pt);
     }
-    for (int z = 0; z < 10; z++) {
-        int y = 2;
-        int x = (WIDTH - 10) / 2 + z;
-        double d = grid->density[y][x];
-        grid->density[y][x] += 1.0;
-        grid->temperature[y][x] = (grid->temperature[y][x] * d + 1.0 * 100.0) / grid->density[y][x];
-        // grid->velocity_y[y][x] = 1.0;
-    }
+    PV;
+//     for (int z = 0; z < 10; z++) {
+//         int y = 2;
+//         int x = (WIDTH - 10) / 2 + z;
+//         double d = grid->density[y][x];
+//         double dens = params.emitter_density;
+//         grid->density[y][x] += dens;
+//         grid->temperature[y][x] = (grid->temperature[y][x] * d + dens * params.emitter_temp) / grid->density[y][x];
+//         // grid->velocity_y[y][x] = 1.0;
+//     }
+//     PV;
 }
