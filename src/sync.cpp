@@ -11,6 +11,10 @@
 
 #include <stdint.h>
 
+#ifdef ASSERT
+# undef ASSERT
+#endif
+
 #ifndef _NDEBUG
 
 // provided for ease of debugging
@@ -26,68 +30,69 @@ static void sync_assert(bool cond, const char *message) {
     }
 }
 
-# ifdef ASSERT
-#  undef ASSERT
-# endif
 # define ASSERT(c) sync_assert(c, #c)
 #else
 # define ASSERT(c)
 #endif
 
-constexpr int NUM_BUFFERS = 3;
-
-union OwnedGridValue {
+union OwnedBufferValue {
     uint64_t value64;
     struct {
         int32_t value32[NUM_OWNERS];
     } as_arr;
 };
 
-static std::atomic_uint64_t owned_grids(0x000000000000001UL);
+TripleBuffer<Grid> grids;
+TripleBuffer<SimParams> param_buf;
 
-static Grid grids[NUM_BUFFERS];
-
-Grid *get_init_grid() {
-    return &grids[0];
+template<typename T>
+T *TripleBuffer<T>::get_init() {
+    return &buffers[0];
 }
 
-void init_grids() {
-    grids[0].updated = false;
-    for (auto &out : grids) {
-        out = grids[0];
+template<typename T>
+void TripleBuffer<T>::init() {
+    for (auto &out : buffers) {
+        out = buffers[0];
     }
 }
 
-inline static int32_t other_grid(OwnedGridValue val) {
-    constexpr int SUM_GRID_INDICES = 0 + 1 + 2;
+inline static int32_t other_buf(OwnedBufferValue val) {
+    constexpr int SUM_INDICES = 0 + 1 + 2;
     ASSERT(val.as_arr.value32[READER] >= 0 &&
            val.as_arr.value32[READER] <= 2);
     ASSERT(val.as_arr.value32[WRITER] >= 0 &&
            val.as_arr.value32[WRITER] <= 2);
-    return SUM_GRID_INDICES
+    return SUM_INDICES
         - val.as_arr.value32[READER]
         - val.as_arr.value32[WRITER];
 }
 
-Grid *get_current_grid(GridOwner owner) {
+template<typename T>
+T *TripleBuffer<T>::get_current(TripleBuffer<T>::Owner owner) {
     ASSERT(owner == READER || owner == WRITER);
-    OwnedGridValue val;
+    OwnedBufferValue val;
     uint64_t read;
-    read = val.value64 = owned_grids.load();
-    return &grids[val.as_arr.value32[WRITER]];
+    read = val.value64 = owned_buffers.load();
+    return &buffers[val.as_arr.value32[WRITER]];
 }
 
-Grid *grid_swap(GridOwner owner) {
+template<typename T>
+T *TripleBuffer<T>::swap(TripleBuffer<T>::Owner owner) {
     ASSERT(owner == READER || owner == WRITER);
-    OwnedGridValue val;
+    OwnedBufferValue val;
     uint64_t read;
     int32_t ret;
     while (true) {
-        read = val.value64 = owned_grids.load();
-        ret = val.as_arr.value32[owner] = other_grid(val);
-        if (owned_grids.compare_exchange_weak(read, val.value64)) {
+        read = val.value64 = owned_buffers.load();
+        ret = val.as_arr.value32[owner] = other_buf(val);
+        if (owned_buffers.compare_exchange_weak(read, val.value64)) {
             break;
         }
     }
-    return &grids[ret];
+    ASSERT(ret >= 0 && ret <= 2);
+    return &buffers[ret];
 }
+
+template class TripleBuffer<Grid>;
+template class TripleBuffer<SimParams>;

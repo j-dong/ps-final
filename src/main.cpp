@@ -5,6 +5,10 @@ constexpr int WINDOW_W = WIDTH * 20, WINDOW_H = HEIGHT * 20;
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 #include <cstdio>
 
 #include <iostream>
@@ -66,6 +70,25 @@ static void gen_upload_data(const Grid *grid) {
     }
 }
 
+void render_gui() {
+    SimParams *params = param_buf.swap(WRITER);
+    static bool show_metrics = false, show_demo = false;
+    ImGui::Begin("Parameters");
+    ImGui::InputDouble("Timestep", &params->timestep);
+    if (ImGui::CollapsingHeader("Buoyancy", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::InputDouble("Alpha", &params->alpha);
+        ImGui::InputDouble("Beta", &params->beta);
+    }
+    if (ImGui::CollapsingHeader("Debug", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Checkbox("Show Metrics", &show_metrics);
+        ImGui::Checkbox("Show Demo", &show_demo);
+    }
+    ImGui::End();
+    if (show_metrics) ImGui::ShowMetricsWindow();
+    if (show_demo) ImGui::ShowDemoWindow();
+    params->updated = true;
+}
+
 int main() {
     if (!glfwInit()) {
         ERROR("error initializing GLFW\n");
@@ -87,6 +110,7 @@ int main() {
     }
     glfwMakeContextCurrent(window);
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+    glfwSwapInterval(1);
 
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -170,27 +194,32 @@ int main() {
 
     running.store(true, std::memory_order_relaxed);
 
-    sim_init_grid(get_init_grid());
-    init_grids();
+    sim_init_grid(grids.get_init());
+    grids.init();
     std::thread sim_thread(sim_main);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, WIDTH, HEIGHT,
                  0, GL_RGBA, GL_FLOAT,
                  nullptr);
 
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO(); (void) io;
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 150");
+
+    bool valid = false;
+
     while (!glfwWindowShouldClose(window)) {
-        Grid *grid = grid_swap(READER);
+        Grid *grid = grids.swap(READER);
         GLenum err;
         if (!grid->updated) goto next;
         grid->updated = false;
-
-        // std::cout << "Got new data!" << std::endl;
-        // printf("using %p\n", grid);
+        valid = true;
 
         gen_upload_data(grid);
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, tex);
         glGetError();
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, WIDTH, HEIGHT,
                      GL_RGBA, GL_FLOAT, (const GLvoid *) upload_data);
@@ -218,11 +247,21 @@ int main() {
             break;
         }
 
+next:
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        render_gui();
+        ImGui::Render();
+
         glClear(GL_COLOR_BUFFER_BIT);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        if (valid) { glDrawArrays(GL_TRIANGLES, 0, 3); }
+
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
         glfwSwapBuffers(window);
 
-next:
         glfwPollEvents();
     }
 

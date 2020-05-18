@@ -12,6 +12,8 @@
 
 using namespace Eigen;
 
+static SimParams params;
+
 static void step(Grid *grid, const Grid *prev);
 
 void sim_init_grid(Grid *grid) {
@@ -25,9 +27,14 @@ void sim_init_grid(Grid *grid) {
 }
 
 void sim_main() {
-    Grid *prev = get_current_grid(WRITER);
+    Grid *prev = grids.get_current(WRITER);
     while (running.load(std::memory_order_relaxed)) {
-        Grid *next = grid_swap(WRITER);
+        Grid *next = grids.swap(WRITER);
+        auto new_params = param_buf.swap(READER);
+        if (new_params->updated) {
+            params = *new_params;
+            new_params->updated = false;
+        }
         step(next, prev);
         next->updated = true;
         printf("updated %p\n", next);
@@ -67,13 +74,9 @@ Vector2d interpolateVelocity(const Grid &grid, Vector2d position) {
     return Vector2d(vx, vy);
 }
 
-constexpr double TIMESTEP = 0.01;
-constexpr double ALPHA    = 0.2;
-constexpr double BETA     = 1.0;
-
 void process_forces(Grid *grid) {
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
-        grid->velocity_y[y][x] += TIMESTEP * (-ALPHA * grid->density[y][x] + BETA * grid->temperature[y][x]);
+        grid->velocity_y[y][x] += params.timestep * (-params.alpha * grid->density[y][x] + params.beta * grid->temperature[y][x]);
     }
 }
 
@@ -111,7 +114,7 @@ void calculate_pressure(Grid *grid) {
         }
         b(y) = -grid->velocity_x[y][x] + grid->velocity_x[y][x + 1]
              + -grid->velocity_y[y][x] + grid->velocity_y[y + 1][x];
-        b(y) /= TIMESTEP;
+        b(y) /= params.timestep;
     }
     A.setFromTriplets(rows.begin(), rows.end());
     rows.clear();
@@ -129,12 +132,12 @@ void step(Grid *grid, const Grid *prev) {
         // update velocity to obtain u*
         grid->velocity_x[y][x] = interpolate(
             prev->velocity_x,
-            Vector2d(x, y) - TIMESTEP *
+            Vector2d(x, y) - params.timestep *
                 interpolateVelocity(*prev, Vector2d(x - 0.5, y))
         );
         grid->velocity_y[y][x] = interpolate(
             prev->velocity_y,
-            Vector2d(x, y) - TIMESTEP *
+            Vector2d(x, y) - params.timestep *
                 interpolateVelocity(*prev, Vector2d(x, y - 0.5))
         );
     }
@@ -145,13 +148,13 @@ void step(Grid *grid, const Grid *prev) {
     std::cout << "updating velocity due to pressure" << std::endl;
     for (int y = 1; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
         // update velocity based on pressure
-        grid->velocity_x[y][x] -= TIMESTEP * (grid->pressure[y][x] - grid->pressure[y][x - 1]);
-        grid->velocity_y[y][x] -= TIMESTEP * (grid->pressure[y][x] - grid->pressure[y - 1][x]);
+        grid->velocity_x[y][x] -= params.timestep * (grid->pressure[y][x] - grid->pressure[y][x - 1]);
+        grid->velocity_y[y][x] -= params.timestep * (grid->pressure[y][x] - grid->pressure[y - 1][x]);
     }
     std::cout << "updating temperature and density" << std::endl;
     // advect temperature and density
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
-        Vector2d pt = Vector2d(x, y) - TIMESTEP *
+        Vector2d pt = Vector2d(x, y) - params.timestep *
             interpolateVelocity(*grid, Vector2d(x, y));
         grid->density[y][x] = interpolate(prev->density, pt);
         grid->temperature[y][x] = interpolate(prev->temperature, pt);

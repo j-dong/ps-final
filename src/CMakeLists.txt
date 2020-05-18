@@ -1,6 +1,6 @@
 SET(target final)
 
-add_executable(${target} main.cpp sim.cpp sync.cpp glad.c)
+add_executable(${target} main.cpp sim.cpp sync.cpp glad.c imgui.cpp imgui_demo.cpp imgui_draw.cpp imgui_widgets.cpp imgui_impl_glfw.cpp imgui_impl_opengl3.cpp)
 TARGET_LINK_LIBRARIES(${target})
 
 set_property(TARGET ${target} PROPERTY CXX_STANDARD 17)
