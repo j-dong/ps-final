@@ -37,14 +37,13 @@ out vec4 color;
 
 uniform sampler2D tex;
 
+uniform vec3 pressure_color, density_color, temperature_color;
+
 void main() {
     vec4 data = texture(tex, texcoord);
-    vec3 col3 = mix(vec3(0.2, 0.2, 0.2), vec3(1.0, 0.0, 0.0), data.z / 40.0);
-    color = vec4(col3 * data.y, data.y);
-    color.r = data.x;
-    color.g = data.x;
-    color.b = data.y;
-    color.a = 1.0;
+    // vec3 col3 = mix(vec3(0.2, 0.2, 0.2), vec3(1.0, 0.0, 0.0), data.z / 40.0);
+    // color = vec4(col3 * data.y, data.y);
+    color = vec4(vec3(0.0) + pressure_color * data.x + density_color * data.y + temperature_color * data.z, 1.0);
 }
 )zzz";
 
@@ -57,6 +56,10 @@ static const float VERTICES[][2] = {
 static constexpr float CLEAR_COLOR[] = {0.7, 0.7, 0.7, 1.0};
 
 float upload_data[HEIGHT][WIDTH][4];
+
+float pressure_color[3]    = {0.0f, 0.0f, 1.0f},
+      density_color[3]     = {1.0f, 1.0f, 0.0f},
+      temperature_color[3] = {0.0f, 0.0f, 0.0f};
 
 static void gen_upload_data(const Grid *grid) {
     for (int y = 0; y < HEIGHT; y++) {
@@ -78,6 +81,14 @@ void render_gui() {
     if (ImGui::CollapsingHeader("Buoyancy", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::InputDouble("Alpha", &params->alpha);
         ImGui::InputDouble("Beta", &params->beta);
+    }
+    if (ImGui::CollapsingHeader("Vorticity Confinement", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::InputDouble("Epsilon", &params->epsilon);
+    }
+    if (ImGui::CollapsingHeader("Visualization", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::ColorEdit3("Pressure Color", pressure_color);
+        ImGui::ColorEdit3("Density Color", density_color);
+        ImGui::ColorEdit3("Temperature Color", temperature_color);
     }
     if (ImGui::CollapsingHeader("Debug", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Checkbox("Show Metrics", &show_metrics);
@@ -168,6 +179,10 @@ int main() {
     GLint loc_tex = glGetUniformLocation(prog, "tex");
     glUniform1i(loc_tex, 0);
 
+    GLint loc_col_p = glGetUniformLocation(prog, "pressure_color"),
+          loc_col_d = glGetUniformLocation(prog, "density_color"),
+          loc_col_t = glGetUniformLocation(prog, "temperature_color");
+
     GLuint tex;
     glGenTextures(1, &tex);
     glActiveTexture(GL_TEXTURE0);
@@ -256,6 +271,9 @@ next:
         ImGui::Render();
 
         glClear(GL_COLOR_BUFFER_BIT);
+        glUniform3fv(loc_col_p, 1, pressure_color);
+        glUniform3fv(loc_col_d, 1, density_color);
+        glUniform3fv(loc_col_t, 1, temperature_color);
         if (valid) { glDrawArrays(GL_TRIANGLES, 0, 3); }
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
