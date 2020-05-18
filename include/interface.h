@@ -48,7 +48,7 @@ struct SimParams {
     double timestep = 0.01;
     // double alpha = 0.0, beta = 0.0;
     double alpha = 2.0, beta = 10.0;
-    double epsilon = 1.0;
+    double epsilon = 20.0;
     double emitter_density = 0.1;
     double emitter_temp = 50.0;
     bool updated = false;
