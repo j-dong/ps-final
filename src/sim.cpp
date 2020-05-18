@@ -12,6 +12,8 @@
 #include <Eigen/SparseCore>
 #include <Eigen/IterativeLinearSolvers>
 
+constexpr bool DEBUG = false;
+
 using namespace Eigen;
 
 constexpr int N = WIDTH * HEIGHT;
@@ -23,10 +25,10 @@ void print_total_velocities(int line, Grid *grid) {
         total_sum_x += std::abs(grid->velocity_x[y][x]);
         total_sum_y += std::abs(grid->velocity_y[y][x]);
     }
-    std::cout << "total at line " << line << ": " << total_sum_x << ", " << total_sum_y << std::endl;
+    if (DEBUG) std::cout << "total at line " << line << ": " << total_sum_x << ", " << total_sum_y << std::endl;
 }
 
-#define PV print_total_velocities(__LINE__, grid)
+#define PV do { if (DEBUG) print_total_velocities(__LINE__, grid); } while (false)
 
 static SimParams params;
 static SparseMatrix<double> laplacian;
@@ -176,7 +178,7 @@ void calculate_pressure(Grid *grid) {
         b(y) /= -params.timestep;
         sum_b += std::abs(b(y));
     }
-    std::cout << "sum of b's: " << sum_b << std::endl;
+    if (DEBUG) std::cout << "sum of b's: " << sum_b << std::endl;
     Map<VectorXd> pressureMap((double *) grid->pressure, N);
     VectorXd temp = solver.solve(b);
     // if (b.norm() < 1e-10) {
@@ -186,7 +188,7 @@ void calculate_pressure(Grid *grid) {
     for (int i = 0; i < N; i++) {
         sum_p += std::abs(temp(i));
     }
-    std::cout << "sum of P: " << sum_p << std::endl;
+    if (DEBUG) std::cout << "sum of P: " << sum_p << std::endl;
     pressureMap = temp;
 }
 
