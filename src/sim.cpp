@@ -34,7 +34,6 @@ void sim_main() {
         }
         step(next, prev);
         next->updated = true;
-        printf("updated %p\n", next);
         /*
         for (int y = 0; y < HEIGHT; y++) {
             for (int x = 0; x < WIDTH; x++) {
@@ -42,20 +41,20 @@ void sim_main() {
             }
             std::cout << "\n";
         }
-        */
         std::cout << std::endl;
+        */
         prev = next;
     }
 }
 
 template<int W, int H>
 double interpolate(const double (&values)[H][W], Vector2d position) {
-    if (position(0) < 0.0) position(0) = 0.0;
-    if (position(1) < 0.0) position(1) = 0.0;
+    if (position(0) <= 0.0) position(0) = 0.0;
+    if (position(1) <= 0.0) position(1) = 0.0;
     if (position(0) > W - 1) position(0) = W - 1;
     if (position(1) > H - 1) position(1) = H - 1;
-    int ix = (int) std::floor(position(0)),
-        iy = (int) std::floor(position(1));
+    int ix = (int) position(0),
+        iy = (int) position(1);
     if (ix >= W - 1) ix = W - 2;
     if (iy >= H - 1) iy = H - 2;
     double fx = position(0) - ix, fy = position(1) - iy;
@@ -86,7 +85,7 @@ void process_forces(Grid *grid) {
       grid->vorticity[y][x] = 0.5 * (vel_r(1) - vel_l(1) - vel_u(0) + vel_d(1));
     }
 
-    for (int y = 1; y < HEIGHT; y++) for (int x = 1; x < WIDTH; x++)
+    for (int y = 1; y < HEIGHT - 1; y++) for (int x = 1; x < WIDTH - 1; x++)
     {
       Vector2d Nx;
       //Used for normalization
@@ -151,9 +150,7 @@ void calculate_pressure(Grid *grid) {
 }
 
 void step(Grid *grid, const Grid *prev) {
-    std::cout << "Processing next step" << std::endl;
     *grid = *prev;
-    std::cout << "updating velocity due to advection" << std::endl;
     for (int y = 0; y < HEIGHT + 1; y++) for (int x = 0; x < WIDTH + 1; x++) {
         // update velocity to obtain u*
         grid->velocity_x[y][x] = interpolate(
@@ -167,17 +164,13 @@ void step(Grid *grid, const Grid *prev) {
                 interpolateVelocity(*prev, Vector2d(x, y - 0.5))
         );
     }
-    std::cout << "processing forces" << std::endl;
     process_forces(grid);
-    std::cout << "calculating pressure" << std::endl;
     calculate_pressure(grid);
-    std::cout << "updating velocity due to pressure" << std::endl;
     for (int y = 1; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
         // update velocity based on pressure
         grid->velocity_x[y][x] -= params.timestep * (grid->pressure[y][x] - grid->pressure[y][x - 1]);
         grid->velocity_y[y][x] -= params.timestep * (grid->pressure[y][x] - grid->pressure[y - 1][x]);
     }
-    std::cout << "updating temperature and density" << std::endl;
     // advect temperature and density
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
         Vector2d pt = Vector2d(x, y) - params.timestep *
