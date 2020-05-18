@@ -21,9 +21,6 @@ void sim_init_grid(Grid *grid) {
         grid->density[y + HEIGHT - 40][WIDTH / 2 - 10 + x] = 1.0;
         grid->temperature[y + HEIGHT - 40][WIDTH / 2 - 10 + x] = 20;
     }
-    for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
-        grid->velocity_y[y][x] = 1.0;
-    }
 }
 
 void sim_main() {
