@@ -92,22 +92,11 @@ Vector2d interpolateVelocity(const Grid &grid, Vector2d position) {
 }
 
 void process_forces(Grid *grid) {
-    PV;
+    memset(grid->force_x, 0, sizeof grid->force_x);
+    memset(grid->force_y, 0, sizeof grid->force_y);
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
-        Vector2d pt(x, y - 0.5);
-        double density = interpolate(grid->density, pt);
-        double temp = interpolate(grid->temperature, pt);
-        if (std::isnan(density)) {
-            std::cout << "density is NaN!" << std::endl;
-            std::abort();
-        }
-        if (std::isnan(temp)) {
-            std::cout << "temperature is NaN!" << std::endl;
-            std::abort();
-        }
-        grid->velocity_y[y][x] += params.timestep * (-params.alpha * density + params.beta * temp);
+        grid->force_y[y][x] += -params.alpha * grid->density[y][x] + params.beta * grid->temperature[y][x];
     }
-    PV;
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++)
     {
       Vector2d vel_u = interpolateVelocity(*grid, Vector2d(x,y+1));
@@ -118,27 +107,24 @@ void process_forces(Grid *grid) {
       //Since 2-D we only need z direction of omega
       grid->vorticity[y][x] = 0.5 * (vel_r(1) - vel_l(1) - vel_u(0) + vel_d(1));
     }
-    PV;
-
     for (int y = 1; y < HEIGHT - 1; y++) for (int x = 1; x < WIDTH - 1; x++)
     {
-      Vector2d Nx;
+      Vector2d N;
       //Used for normalization
       using std::abs;
-      Nx(0) = abs(grid->vorticity[y][x]) - abs(grid->vorticity[y][x-1]);
-      Nx(1) = 0.25 * (abs(grid->vorticity[y+1][x]) + abs(grid->vorticity[y+1][x-1]) - abs(grid->vorticity[y-1][x]) - abs(grid->vorticity[y-1][x-1]));
-      Nx /= Nx.norm() + 1e-5;
-      Vector2d Ny;
-      //Used for normalization
-      Ny(1) = abs(grid->vorticity[y][x]) - abs(grid->vorticity[y-1][x]);
-      Ny(0) = 0.25 * (abs(grid->vorticity[y][x+1]) + (grid->vorticity[y-1][x+1]) - abs(grid->vorticity[y][x-1]) - abs(grid->vorticity[y-1][x-1]));
-      Ny /= Ny.norm() + 1e-5;
-      double omega_x = 0.5* (grid->vorticity[y][x] + grid->vorticity[y][x-1]);
-      double omega_y = 0.5* (grid->vorticity[y][x] + grid->vorticity[y-1][x]);
-      grid->velocity_x[y][x] += Nx(1) * omega_x * params.epsilon * params.timestep;
-      grid->velocity_y[y][x] -= Ny(0) * omega_y * params.epsilon * params.timestep;
+      N(0) = 0.5 * (abs(grid->vorticity[y][x+1]) - abs(grid->vorticity[y][x-1]));
+      N(1) = 0.5 * (abs(grid->vorticity[y+1][x]) - abs(grid->vorticity[y-1][x]));
+      N /= N.norm() + 1e-5;
+      grid->force_x[y][x] += N(1) * grid->vorticity[y][x] * params.epsilon;
+      grid->force_y[y][x] -= N(0) * grid->vorticity[y][x] * params.epsilon;
     }
-    PV;
+}
+
+void apply_force(Grid *grid) {
+    for (int y = 0; y < HEIGHT + 1; y++) for (int x = 0; x < WIDTH + 1; x++) {
+        grid->velocity_x[y][x] += params.timestep * interpolate(grid->force_x, Vector2d(x - 0.5, y));
+        grid->velocity_y[y][x] += params.timestep * interpolate(grid->force_y, Vector2d(x, y - 0.5));
+    }
 }
 
 inline int INDEX(int x, int y) { return x + y * WIDTH; }
@@ -216,8 +202,9 @@ void step(Grid *grid, const Grid *prev) {
                 interpolateVelocity(*prev, Vector2d(x, y - 0.5))
         );
     }
-    PV;
     process_forces(grid);
+    PV;
+    apply_force(grid);
     PV;
     calculate_pressure(grid);
     for (int y = 1; y < HEIGHT; y++) for (int x = 1; x < WIDTH; x++) {

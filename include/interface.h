@@ -34,8 +34,8 @@ struct alignas(4 * sizeof(double)) Grid
     double density[HEIGHT][WIDTH];
     double temperature[HEIGHT][WIDTH];
     double vorticity[HEIGHT][WIDTH];
-    // double force_x[HEIGHT][WIDTH];
-    // double force_y[HEIGHT][WIDTH];
+    double force_x[HEIGHT][WIDTH];
+    double force_y[HEIGHT][WIDTH];
     // velocity_x[y][x] connects (x - 1, y) with (x, y)
     double velocity_x[HEIGHT + 4][WIDTH + 4];
     // velocity_y[y][x] connects (x, y - 1) with (x, y)
