@@ -172,7 +172,7 @@ void step(Grid *grid, const Grid *prev) {
     }
     process_forces(grid);
     calculate_pressure(grid);
-    for (int y = 1; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+    for (int y = 1; y < HEIGHT; y++) for (int x = 1; x < WIDTH; x++) {
         // update velocity based on pressure
         grid->velocity_x[y][x] -= params.timestep * (grid->pressure[y][x] - grid->pressure[y][x - 1]);
         grid->velocity_y[y][x] -= params.timestep * (grid->pressure[y][x] - grid->pressure[y - 1][x]);
