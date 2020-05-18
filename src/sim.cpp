@@ -148,7 +148,8 @@ void calculate_pressure(Grid *grid) {
     // solver.setTolerance(1e-8);
     solver.compute(A);
     Map<VectorXd> pressureMap((double *) grid->pressure, N);
-    pressureMap = solver.solve(b);
+    VectorXd temp = solver.solve(b);
+    pressureMap = temp;
 }
 
 void step(Grid *grid, const Grid *prev) {
