@@ -181,7 +181,7 @@ void calculate_pressure(Grid *grid) {
         int n = INDEX(x, y);
         b(n) = -grid->velocity_x[y][x] + grid->velocity_x[y][x + 1]
              + -grid->velocity_y[y][x] + grid->velocity_y[y + 1][x];
-        b(n) /= -params.timestep;
+        b(n) *= -1.0;
         sum_b += std::abs(b(n));
         dot_b += b(n);
     }
@@ -227,24 +227,24 @@ void step(Grid *grid, const Grid *prev) {
     {
         double sum_div = 0.0;
         for (int y = 1; y < HEIGHT - 1; y++) for (int x = 1; x < WIDTH - 1; x++) {
-            double div = -grid->velocity_x[y][x-1] + grid->velocity_x[y][x]
-                         -grid->velocity_y[y-1][x] + grid->velocity_y[y][x];
+            double div = -grid->velocity_x[y][x] + grid->velocity_x[y][x+1]
+                         -grid->velocity_y[y][x] + grid->velocity_y[y+1][x];
             sum_div += std::abs(div);
-            // if (std::fabs(div) > 1e-2) std::cout << "---" << div << std::endl;
+            // if (std::fabs(div) > 1e-2) std::cout << "+++" << div << std::endl;
         }
         std::cout << "sum of div before: " << sum_div << std::endl;
     }
     for (int y = 1; y < HEIGHT; y++) for (int x = 1; x < WIDTH; x++) {
         // update velocity based on pressure
-        grid->velocity_x[y][x] -= params.timestep * (grid->pressure[y][x] - grid->pressure[y][x - 1]);
-        grid->velocity_y[y][x] -= params.timestep * (grid->pressure[y][x] - grid->pressure[y - 1][x]);
+        grid->velocity_x[y][x] -= (grid->pressure[y][x] - grid->pressure[y][x - 1]);
+        grid->velocity_y[y][x] -= (grid->pressure[y][x] - grid->pressure[y - 1][x]);
     }
     PV;
     {
         double sum_div = 0.0;
         for (int y = 1; y < HEIGHT - 1; y++) for (int x = 1; x < WIDTH - 1; x++) {
-            double div = -grid->velocity_x[y][x-1] + grid->velocity_x[y][x]
-                         -grid->velocity_y[y-1][x] + grid->velocity_y[y][x];
+            double div = -grid->velocity_x[y][x] + grid->velocity_x[y][x+1]
+                         -grid->velocity_y[y][x] + grid->velocity_y[y+1][x];
             sum_div += std::abs(div);
             // if (std::fabs(div) > 1e-2) std::cout << "+++" << div << std::endl;
         }
