@@ -185,11 +185,11 @@ void calculate_pressure(Grid *grid) {
         sum_b += std::abs(b(n));
         dot_b += b(n);
     }
-    std::cout << "sum of b's: " << sum_b << std::endl;
-    std::cout << "dot b with 1: " << dot_b << std::endl;
+    if (DEBUG) std::cout << "sum of b's: " << sum_b << std::endl;
+    if (DEBUG) std::cout << "dot b with 1: " << dot_b << std::endl;
     Map<VectorXd> pressureMap((double *) grid->pressure, N);
     VectorXd temp = solver.solve(b);
-    std::cout << "solver error: " << ((laplacian * temp) - b).norm() << std::endl;
+    if (DEBUG) std::cout << "solver error: " << ((laplacian * temp) - b).norm() << std::endl;
     // if (b.norm() < 1e-10) {
     //     temp.setZero();
     // }
@@ -232,7 +232,7 @@ void step(Grid *grid, const Grid *prev) {
             sum_div += std::abs(div);
             // if (std::fabs(div) > 1e-2) std::cout << "+++" << div << std::endl;
         }
-        std::cout << "sum of div before: " << sum_div << std::endl;
+        if (DEBUG) std::cout << "sum of div before: " << sum_div << std::endl;
     }
     for (int y = 1; y < HEIGHT; y++) for (int x = 1; x < WIDTH; x++) {
         // update velocity based on pressure
@@ -248,7 +248,7 @@ void step(Grid *grid, const Grid *prev) {
             sum_div += std::abs(div);
             // if (std::fabs(div) > 1e-2) std::cout << "+++" << div << std::endl;
         }
-        std::cout << "sum of div after: " << sum_div << std::endl;
+        if (DEBUG) std::cout << "sum of div after: " << sum_div << std::endl;
     }
     for (int i = 0; i <= WIDTH; i++) {
         grid->velocity_y[0][i] = 0;
@@ -267,6 +267,12 @@ void step(Grid *grid, const Grid *prev) {
             std::cout << "NEGATIVE DENSITY!" << std::endl;
         }
         grid->temperature[y][x] = interpolate(prev->temperature, pt);
+        // heat transfer
+        double old = grid->temperature[y][x];
+        grid->temperature[y][x] -= params.kappa * grid->temperature[y][x] * params.timestep;
+        if (old * grid->temperature[y][x] < 0.0) {
+            grid->temperature[y][x] = 0.0;
+        }
     }
     PV;
     if (params.emitter_density > 1e-6) {

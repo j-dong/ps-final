@@ -51,6 +51,7 @@ struct SimParams {
     double epsilon = 20.0;
     double emitter_density = 0.1;
     double emitter_temp = 50.0;
+    double kappa = 1.00;
     bool want_to_export = false;
     bool updated = false;
 };

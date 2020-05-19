@@ -109,6 +109,9 @@ void render_gui() {
     if (ImGui::CollapsingHeader("Vorticity Confinement", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::InputDouble("Epsilon", &params->epsilon);
     }
+    if (ImGui::CollapsingHeader("Heat Transfer", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::InputDouble("Kappa", &params->kappa);
+    }
     if (ImGui::CollapsingHeader("Visualization", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Checkbox("Debug Mode", &debug_graphics);
         ImGui::ColorEdit3("Fire Coefficients", fire_coeff);
