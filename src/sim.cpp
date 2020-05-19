@@ -206,6 +206,8 @@ bool have_exported = false;
 void step(Grid *grid, const Grid *prev) {
     *grid = *prev;
     PV;
+    process_forces(grid);
+    PV;
     for (int y = 0; y < HEIGHT + 1; y++) for (int x = 0; x < WIDTH + 1; x++) {
         // update velocity to obtain u*
         grid->velocity_x[y][x] = interpolate(
@@ -219,8 +221,6 @@ void step(Grid *grid, const Grid *prev) {
                 interpolateVelocity(*prev, Vector2d(x, y - 0.5))
         );
     }
-    process_forces(grid);
-    PV;
     apply_force(grid);
     PV;
     calculate_pressure(grid);
