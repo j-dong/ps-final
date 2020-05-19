@@ -168,7 +168,12 @@ void render_gui() {
     params->updated = true;
 }
 
+static void glfw_error_callback(int error, const char *desc) {
+    std::cerr << desc << std::endl;
+}
+
 int main() {
+    glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit()) {
         ERROR("error initializing GLFW\n");
         return 1;
