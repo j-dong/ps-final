@@ -41,12 +41,22 @@ out vec4 color;
 uniform sampler2D tex;
 
 uniform vec3 pressure_color, density_color, temperature_color;
+uniform vec3 fire_coeff;
+uniform float fire_scale;
+uniform bool debug_mode;
 
 void main() {
     vec4 data = texture(tex, texcoord);
     // vec3 col3 = mix(vec3(0.2, 0.2, 0.2), vec3(1.0, 0.0, 0.0), data.z / 40.0);
     // color = vec4(col3 * data.y, data.y);
-    color = vec4(vec3(0.0) + pressure_color * data.x + density_color * data.y + temperature_color * data.z, 1.0);
+    if (debug_mode) {
+        color = vec4(vec3(0.0) + pressure_color * data.x + density_color * data.y + temperature_color * data.z, 1.0);
+    } else {
+        // smoke absorption + diffuse
+        color = vec4(0.6 * vec3(1.0 - clamp(data.y - 1.0, 0.0, 0.2)), 1.0) * clamp(data.y, 0.0, 1.0);
+        // emission
+        color += vec4(exp(fire_scale * fire_coeff * max(0.0, data.z)) - 1.0, 0.0);
+    }
 }
 )zzz";
 
@@ -56,13 +66,18 @@ static const float VERTICES[][2] = {
     { -1.0,  3.0 },
 };
 
-static constexpr float CLEAR_COLOR[] = {0.7, 0.7, 0.7, 1.0};
+static constexpr float CLEAR_COLOR[] = {0.0, 0.0, 0.0, 1.0};
 
 float upload_data[HEIGHT][WIDTH][4];
 
 float pressure_color[3]    = {0.0f, 0.0f, 1.0f},
       density_color[3]     = {1.0f, 1.0f, 0.0f},
       temperature_color[3] = {0.0f, 0.0f, 0.0f};
+
+float fire_coeff[3] = {1.0, 0.6, 0.3};
+float fire_scale    = 0.02;
+
+bool debug_graphics = false;
 
 static void gen_upload_data(const Grid *grid) {
     for (int y = 0; y < HEIGHT; y++) {
@@ -95,6 +110,9 @@ void render_gui() {
         ImGui::InputDouble("Epsilon", &params->epsilon);
     }
     if (ImGui::CollapsingHeader("Visualization", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Checkbox("Debug Mode", &debug_graphics);
+        ImGui::ColorEdit3("Fire Coefficients", fire_coeff);
+        ImGui::InputFloat("Fire Scale", &fire_scale);
         ImGui::ColorEdit3("Pressure Color", pressure_color);
         ImGui::ColorEdit3("Density Color", density_color);
         ImGui::ColorEdit3("Temperature Color", temperature_color);
@@ -196,6 +214,10 @@ int main() {
           loc_col_d = glGetUniformLocation(prog, "density_color"),
           loc_col_t = glGetUniformLocation(prog, "temperature_color");
 
+    GLint loc_fire_coeff = glGetUniformLocation(prog, "fire_coeff"),
+          loc_fire_scale = glGetUniformLocation(prog, "fire_scale"),
+          loc_debug = glGetUniformLocation(prog, "debug_mode");
+
     GLuint tex;
     glGenTextures(1, &tex);
     glActiveTexture(GL_TEXTURE0);
@@ -288,6 +310,9 @@ next:
         glUniform3fv(loc_col_p, 1, pressure_color);
         glUniform3fv(loc_col_d, 1, density_color);
         glUniform3fv(loc_col_t, 1, temperature_color);
+        glUniform3fv(loc_fire_coeff, 1, fire_coeff);
+        glUniform1f(loc_fire_scale, fire_scale);
+        glUniform1i(loc_debug, debug_graphics);
         if (valid) { glDrawArrays(GL_TRIANGLES, 0, 3); }
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
