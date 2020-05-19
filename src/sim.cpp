@@ -34,8 +34,7 @@ void print_total_velocities(int line, Grid *grid) {
 
 static SimParams params;
 static SparseMatrix<double> laplacian;
-// static ConjugateGradient<SparseMatrix<double>, Lower|Upper, IncompleteCholesky<double>> solver;
-static ConjugateGradient<SparseMatrix<double>, Lower, IncompleteCholesky<double>> solver;
+static ConjugateGradient<SparseMatrix<double>, Lower|Upper, IncompleteCholesky<double>> solver;
 // static SimplicialLDLT<SparseMatrix<double>> solver;
 
 static void step(Grid *grid, const Grid *prev);
@@ -62,8 +61,8 @@ bool is_valid(int x, int y) {
 }
 
 void sim_init() {
-    // solver.setMaxIterations(40);
-    // solver.setTolerance(1e-10);
+    solver.setMaxIterations(40);
+    solver.setTolerance(1e-10);
     std::vector<Eigen::Triplet<double>> rows;
     rows.reserve(5 * N);
     // fill in Laplacian matrix
@@ -231,7 +230,7 @@ void step(Grid *grid, const Grid *prev) {
             double div = -grid->velocity_x[y][x-1] + grid->velocity_x[y][x]
                          -grid->velocity_y[y-1][x] + grid->velocity_y[y][x];
             sum_div += std::abs(div);
-            if (std::fabs(div) > 1e-2) std::cout << "---" << div << std::endl;
+            // if (std::fabs(div) > 1e-2) std::cout << "---" << div << std::endl;
         }
         std::cout << "sum of div before: " << sum_div << std::endl;
     }
@@ -247,9 +246,17 @@ void step(Grid *grid, const Grid *prev) {
             double div = -grid->velocity_x[y][x-1] + grid->velocity_x[y][x]
                          -grid->velocity_y[y-1][x] + grid->velocity_y[y][x];
             sum_div += std::abs(div);
-            if (std::fabs(div) > 1e-2) std::cout << "+++" << div << std::endl;
+            // if (std::fabs(div) > 1e-2) std::cout << "+++" << div << std::endl;
         }
         std::cout << "sum of div after: " << sum_div << std::endl;
+    }
+    for (int i = 0; i <= WIDTH; i++) {
+        grid->velocity_y[0][i] = 0;
+        grid->velocity_y[HEIGHT][i] = 0;
+    }
+    for (int i = 0; i <= HEIGHT; i++) {
+        grid->velocity_y[i][0] = 0;
+        grid->velocity_y[i][WIDTH] = 0;
     }
     // advect temperature and density
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
