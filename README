@@ -1,0 +1,26 @@
+Authors:
+James Dong
+Aditya Tewari
+
+Prequisites:
+------------
+- Eigen3
+- GLFW
+- CMake
+
+Optional Prequisities
+------------------------
+- OpenMP - Very recommended
+
+
+Build Instructions:
+-------------
+mkdir build
+cd build
+cmake ..
+make -j
+./bin/final
+
+
+James Dong has submitted the Survey
+Aditya Tewari has not, but would have liked to :'(.
