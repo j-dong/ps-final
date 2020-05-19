@@ -56,7 +56,11 @@ inline int INDEX(int x, int y) { return x + y * WIDTH; }
 bool is_valid(int x, int y) {
     if (x < 0 || x >= WIDTH) return false;
     if (y < 0 || y >= HEIGHT) return false;
-    // TODO: solid cells
+    if (params.obstacle_enabled
+     && x >= params.obstacle_xmin && x < params.obstacle_xmax
+     && y >= params.obstacle_ymin && y < params.obstacle_ymax) {
+        return false;
+    }
     return true;
 }
 
@@ -73,6 +77,10 @@ void sim_init() {
         { 0, 1},
     };
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
+        if (!is_valid(x, y)) {
+            rows.emplace_back(INDEX(x, y), INDEX(x, y), 1.0);
+            continue;
+        }
         int neighbor_count = 0;
         for (const int (&d)[2] : NEIGHBOR_OFFSETS) {
             int dx = x + d[0], dy = y + d[1];
@@ -276,6 +284,18 @@ void step(Grid *grid, const Grid *prev) {
         grid->velocity_y[i][0] = 0;
         grid->velocity_y[i][WIDTH] = 0;
     }
+    if (params.obstacle_enabled) {
+        for (int y = params.obstacle_ymin; y <= params.obstacle_ymax; y++) {
+            for (int x = params.obstacle_xmin; x <= params.obstacle_xmax; x++) {
+                if (!(x == params.obstacle_xmin || x == params.obstacle_xmax - 1)) {
+                    grid->velocity_y[y][x] = 0;
+                }
+                if (!(y == params.obstacle_ymin || y == params.obstacle_ymax - 1)) {
+                    grid->velocity_x[y][x] = 0;
+                }
+            }
+        }
+    }
     // advect temperature and density
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
         Vector2d pt = Vector2d(x, y) - params.timestep *
@@ -302,6 +322,15 @@ void step(Grid *grid, const Grid *prev) {
             grid->density[y][x] += dens;
             grid->temperature[y][x] = (grid->temperature[y][x] * d + dens * params.emitter_temp) / grid->density[y][x];
             // grid->velocity_y[y][x] = 1.0;
+        }
+    }
+    if (params.obstacle_enabled) {
+        for (int y = params.obstacle_ymin; y < params.obstacle_ymax; y++) {
+            for (int x = params.obstacle_xmin; x < params.obstacle_xmax; x++) {
+                grid->pressure[y][x] = 0;
+                grid->temperature[y][x] = 0;
+                grid->density[y][x] = 0;
+            }
         }
     }
     PV;

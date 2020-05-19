@@ -115,7 +115,9 @@ double estimate_frame_time(TimeNode *node) {
 }
 
 void render_gui() {
+    SimParams *prev = param_buf.get_current(WRITER);
     SimParams *params = param_buf.swap(WRITER);
+    *params = *prev;
     static bool show_metrics = false, show_demo = false;
     ImGui::Begin("Parameters");
     if (ImGui::Button("Reset Simulation")) {
@@ -148,6 +150,13 @@ void render_gui() {
     if (ImGui::CollapsingHeader("Emitter", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::InputDouble("Density", &params->emitter_density);
         ImGui::InputDouble("Temperature", &params->emitter_temp);
+    }
+    if (ImGui::CollapsingHeader("Obstacle", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Checkbox("Enabled", &params->obstacle_enabled);
+        ImGui::SliderInt("Left", &params->obstacle_xmin, 0, WIDTH);
+        ImGui::SliderInt("Right", &params->obstacle_xmax, 0, WIDTH);
+        ImGui::SliderInt("Bottom", &params->obstacle_ymin, 0, HEIGHT);
+        ImGui::SliderInt("Top", &params->obstacle_ymax, 0, HEIGHT);
     }
     if (ImGui::CollapsingHeader("Debug", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Checkbox("Show Metrics", &show_metrics);

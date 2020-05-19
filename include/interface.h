@@ -52,6 +52,11 @@ struct SimParams {
     double emitter_density = 0.1;
     double emitter_temp = 50.0;
     double kappa = 1.00;
+    bool obstacle_enabled = false;
+    int obstacle_xmin = 20;
+    int obstacle_xmax = WIDTH - 20;
+    int obstacle_ymin = HEIGHT / 2;
+    int obstacle_ymax = HEIGHT / 2 + 20;
     bool want_to_export = false;
     bool updated = false;
 };
