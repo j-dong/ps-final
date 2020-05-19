@@ -90,9 +90,27 @@ void sim_init() {
     solver.compute(laplacian);
 }
 
+extern "C" {
+    double glfwGetTime();
+}
+
+std::atomic<TimeNode *> timer_root(nullptr);
+
 void sim_main() {
+    TimeNode *prev_root = timer_root.exchange(nullptr);
+    while (prev_root) {
+        TimeNode *next = prev_root->next;
+        delete prev_root;
+        prev_root = next;
+    }
     Grid *prev = grids.get_current(WRITER);
     while (running.load(std::memory_order_relaxed)) {
+        // update FPS counter
+        TimeNode *root = timer_root.load();
+        TimeNode *node = new TimeNode();
+        node->time = glfwGetTime();
+        node->next = root;
+        timer_root.store(node);
         Grid *next = grids.swap(WRITER);
         auto new_params = param_buf.swap(READER);
         if (new_params->updated) {

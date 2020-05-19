@@ -91,6 +91,29 @@ static void gen_upload_data(const Grid *grid) {
     }
 }
 
+double estimate_frame_time(TimeNode *node) {
+    if (node == nullptr || node->next == nullptr) return 0.0;
+    TimeNode *cur = node->next, *prev = node;
+    double sum = 0.0;
+    int count = 0;
+    while (cur) {
+        sum += prev->time - cur->time;
+        count++;
+        prev = cur;
+        cur = cur->next;
+        if (count >= 10) {
+            prev->next = nullptr;
+            break;
+        }
+    }
+    while (cur) {
+        TimeNode *next = cur->next;
+        delete cur;
+        cur = next;
+    }
+    return sum / count;
+}
+
 void render_gui() {
     SimParams *params = param_buf.swap(WRITER);
     static bool show_metrics = false, show_demo = false;
@@ -101,6 +124,8 @@ void render_gui() {
     if (ImGui::Button("Export Velocities")) {
         params->want_to_export = true;
     }
+    double ft = estimate_frame_time(timer_root.load());
+    ImGui::Text("%.2fms/frame (%.2f FPS)", ft * 1000.0, 1.0 / ft);
     ImGui::InputDouble("Timestep", &params->timestep);
     if (ImGui::CollapsingHeader("Buoyancy", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::InputDouble("Alpha", &params->alpha);

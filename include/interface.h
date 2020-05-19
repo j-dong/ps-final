@@ -56,6 +56,13 @@ struct SimParams {
     bool updated = false;
 };
 
+struct TimeNode {
+    double time;
+    struct TimeNode *next;
+};
+
+extern std::atomic<TimeNode *> timer_root;
+
 extern TripleBuffer<Grid> grids;
 extern TripleBuffer<SimParams> param_buf;
 
