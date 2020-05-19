@@ -5,11 +5,13 @@
 #include <cstring>
 #include <cstdlib>
 
+#include <fstream>
 #include <iostream>
 #include <vector>
 
 #include <Eigen/Dense>
 #include <Eigen/SparseCore>
+#include <Eigen/SparseCholesky>
 #include <Eigen/IterativeLinearSolvers>
 
 constexpr bool DEBUG = false;
@@ -32,7 +34,9 @@ void print_total_velocities(int line, Grid *grid) {
 
 static SimParams params;
 static SparseMatrix<double> laplacian;
-static ConjugateGradient<SparseMatrix<double>, Lower|Upper, IncompleteCholesky<double>> solver;
+// static ConjugateGradient<SparseMatrix<double>, Lower|Upper, IncompleteCholesky<double>> solver;
+static ConjugateGradient<SparseMatrix<double>, Lower, IncompleteCholesky<double>> solver;
+// static SimplicialLDLT<SparseMatrix<double>> solver;
 
 static void step(Grid *grid, const Grid *prev);
 
@@ -58,8 +62,8 @@ bool is_valid(int x, int y) {
 }
 
 void sim_init() {
-    solver.setMaxIterations(40);
-    solver.setTolerance(1e-10);
+    // solver.setMaxIterations(40);
+    // solver.setTolerance(1e-10);
     std::vector<Eigen::Triplet<double>> rows;
     rows.reserve(5 * N);
     // fill in Laplacian matrix
@@ -70,13 +74,16 @@ void sim_init() {
         { 0, 1},
     };
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
-        rows.emplace_back(INDEX(x, y), INDEX(x, y), 4.0);
+        int neighbor_count = 0;
         for (const int (&d)[2] : NEIGHBOR_OFFSETS) {
             int dx = x + d[0], dy = y + d[1];
             if (is_valid(dx, dy)) {
                 rows.emplace_back(INDEX(x, y), INDEX(dx, dy), -1.0);
+                neighbor_count += 1;
             }
         }
+        // rows.emplace_back(INDEX(x, y), INDEX(x, y), neighbor_count);
+        rows.emplace_back(INDEX(x, y), INDEX(x, y), neighbor_count);
     }
     laplacian.resize(N, N);
     laplacian.setFromTriplets(rows.begin(), rows.end());
@@ -145,7 +152,7 @@ void process_forces(Grid *grid) {
       Vector2d vel_r = interpolateVelocity(*grid, Vector2d(x-1,y));
 
       //Since 2-D we only need z direction of omega
-      grid->vorticity[y][x] = 0.5 * (vel_r(1) - vel_l(1) - vel_u(0) + vel_d(1));
+      grid->vorticity[y][x] = 0.5 * (vel_r(1) - vel_l(1) - vel_u(0) + vel_d(0));
     }
     for (int y = 1; y < HEIGHT - 1; y++) for (int x = 1; x < WIDTH - 1; x++)
     {
@@ -170,15 +177,20 @@ void apply_force(Grid *grid) {
 void calculate_pressure(Grid *grid) {
     VectorXd b(N);
     double sum_b = 0.0;
+    double dot_b = 0.0;
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
-        b(y) = -grid->velocity_x[y][x] + grid->velocity_x[y][x + 1]
+        int n = INDEX(x, y);
+        b(n) = -grid->velocity_x[y][x] + grid->velocity_x[y][x + 1]
              + -grid->velocity_y[y][x] + grid->velocity_y[y + 1][x];
-        b(y) /= -params.timestep;
-        sum_b += std::abs(b(y));
+        b(n) /= -params.timestep;
+        sum_b += std::abs(b(n));
+        dot_b += b(n);
     }
-    if (DEBUG) std::cout << "sum of b's: " << sum_b << std::endl;
+    std::cout << "sum of b's: " << sum_b << std::endl;
+    std::cout << "dot b with 1: " << dot_b << std::endl;
     Map<VectorXd> pressureMap((double *) grid->pressure, N);
     VectorXd temp = solver.solve(b);
+    std::cout << "solver error: " << ((laplacian * temp) - b).norm() << std::endl;
     // if (b.norm() < 1e-10) {
     //     temp.setZero();
     // }
@@ -189,6 +201,8 @@ void calculate_pressure(Grid *grid) {
     if (DEBUG) std::cout << "sum of P: " << sum_p << std::endl;
     pressureMap = temp;
 }
+
+bool have_exported = false;
 
 void step(Grid *grid, const Grid *prev) {
     *grid = *prev;
@@ -211,12 +225,32 @@ void step(Grid *grid, const Grid *prev) {
     apply_force(grid);
     PV;
     calculate_pressure(grid);
+    {
+        double sum_div = 0.0;
+        for (int y = 1; y < HEIGHT - 1; y++) for (int x = 1; x < WIDTH - 1; x++) {
+            double div = -grid->velocity_x[y][x-1] + grid->velocity_x[y][x]
+                         -grid->velocity_y[y-1][x] + grid->velocity_y[y][x];
+            sum_div += std::abs(div);
+            if (std::fabs(div) > 1e-2) std::cout << "---" << div << std::endl;
+        }
+        std::cout << "sum of div before: " << sum_div << std::endl;
+    }
     for (int y = 1; y < HEIGHT; y++) for (int x = 1; x < WIDTH; x++) {
         // update velocity based on pressure
         grid->velocity_x[y][x] -= params.timestep * (grid->pressure[y][x] - grid->pressure[y][x - 1]);
         grid->velocity_y[y][x] -= params.timestep * (grid->pressure[y][x] - grid->pressure[y - 1][x]);
     }
     PV;
+    {
+        double sum_div = 0.0;
+        for (int y = 1; y < HEIGHT - 1; y++) for (int x = 1; x < WIDTH - 1; x++) {
+            double div = -grid->velocity_x[y][x-1] + grid->velocity_x[y][x]
+                         -grid->velocity_y[y-1][x] + grid->velocity_y[y][x];
+            sum_div += std::abs(div);
+            if (std::fabs(div) > 1e-2) std::cout << "+++" << div << std::endl;
+        }
+        std::cout << "sum of div after: " << sum_div << std::endl;
+    }
     // advect temperature and density
     for (int y = 0; y < HEIGHT; y++) for (int x = 0; x < WIDTH; x++) {
         Vector2d pt = Vector2d(x, y) - params.timestep *
@@ -240,4 +274,11 @@ void step(Grid *grid, const Grid *prev) {
         }
     }
     PV;
+    if (params.want_to_export && !have_exported) {
+        have_exported = true;
+        std::ofstream f("out.csv");
+        for (int y = 0; y <= HEIGHT; y++) for (int x = 0; x <= WIDTH; x++) {
+            f << x << "," << y << "," << grid->velocity_x[y][x] << "," << grid->velocity_y[y][x] << std::endl;
+        }
+    }
 }

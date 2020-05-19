@@ -83,6 +83,9 @@ void render_gui() {
     if (ImGui::Button("Reset Simulation")) {
         want_reset = true;
     }
+    if (ImGui::Button("Export Velocities")) {
+        params->want_to_export = true;
+    }
     ImGui::InputDouble("Timestep", &params->timestep);
     if (ImGui::CollapsingHeader("Buoyancy", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::InputDouble("Alpha", &params->alpha);
